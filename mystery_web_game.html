@@ -1,0 +1,777 @@
+
+<style>
+  :root {
+    --mystery-bg: #0a0a0f;
+    --mystery-surface: #12121a;
+    --mystery-border: #2a2a3a;
+    --mystery-accent: #7c5cbf;
+    --mystery-glow: #9d7de8;
+    --mystery-text: #e8e8f0;
+    --mystery-muted: #7a7a9a;
+    --mystery-red: #e24b4a;
+    --mystery-green: #4caf88;
+    --mystery-gold: #f0a030;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  #game-root {
+    background: var(--mystery-bg);
+    color: var(--mystery-text);
+    font-family: var(--font-mono, monospace);
+    min-height: 600px;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .screen { display: none; width: 100%; min-height: 600px; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* === NAV BAR === */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--mystery-surface);
+    border-bottom: 1px solid var(--mystery-border);
+    font-size: 13px;
+  }
+  .nav-logo { font-weight: 500; color: var(--mystery-text); letter-spacing: 0.05em; }
+  .nav-links { display: flex; gap: 20px; }
+  .nav-link {
+    color: var(--mystery-muted); cursor: pointer; transition: color 0.2s;
+    background: none; border: none; font-family: inherit; font-size: 13px;
+  }
+  .nav-link:hover { color: var(--mystery-text); }
+  .nav-link.secret-found { color: var(--mystery-gold) !important; }
+
+  /* === PROGRESS BAR === */
+  .progress-bar {
+    height: 2px;
+    background: var(--mystery-border);
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%; background: var(--mystery-accent);
+    transition: width 0.5s ease;
+  }
+
+  /* === HOME SCREEN === */
+  #home-screen {
+    align-items: center; justify-content: center;
+    text-align: center; padding: 40px 20px;
+    position: relative;
+    min-height: 560px;
+  }
+
+  .hero-title {
+    font-size: 28px; font-weight: 500;
+    color: var(--mystery-text);
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  .hero-sub {
+    font-size: 14px; color: var(--mystery-muted);
+    margin-bottom: 40px;
+    max-width: 400px;
+    line-height: 1.6;
+  }
+
+  .cta-btn {
+    background: var(--mystery-accent);
+    color: white; border: none; border-radius: 8px;
+    padding: 12px 28px; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .cta-btn:hover { background: var(--mystery-glow); transform: scale(1.02); }
+
+  .floating-hints {
+    position: absolute; width: 100%; height: 100%;
+    top: 0; left: 0; pointer-events: none;
+    overflow: hidden;
+  }
+  .hint-dot {
+    position: absolute; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--mystery-accent);
+    opacity: 0.3; animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); opacity: 0.3; }
+    50% { transform: translateY(-12px); opacity: 0.6; }
+  }
+
+  /* Hidden easter egg area on home */
+  .corner-mystery {
+    position: absolute; bottom: 14px; right: 14px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: transparent; cursor: pointer;
+    border: 1px solid transparent;
+    transition: border-color 0.3s;
+  }
+  .corner-mystery:hover { border-color: var(--mystery-accent); }
+
+  /* === ABOUT SCREEN === */
+  #about-screen { padding: 30px 24px; min-height: 560px; }
+  .page-title {
+    font-size: 18px; font-weight: 500;
+    color: var(--mystery-text);
+    margin-bottom: 6px;
+  }
+  .page-sub { font-size: 13px; color: var(--mystery-muted); margin-bottom: 28px; }
+
+  .about-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px; margin-bottom: 28px;
+  }
+  .about-card {
+    background: var(--mystery-surface);
+    border: 1px solid var(--mystery-border);
+    border-radius: 10px;
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .about-card:hover { border-color: var(--mystery-accent); transform: translateY(-1px); }
+  .about-card-icon { font-size: 22px; margin-bottom: 10px; }
+  .about-card-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .about-card-desc { font-size: 12px; color: var(--mystery-muted); line-height: 1.5; }
+  .about-card-secret {
+    position: absolute; top: 8px; right: 8px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--mystery-gold); opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .about-card.discovered .about-card-secret { opacity: 1; }
+
+  /* Code reveal */
+  .code-reveal {
+    background: #0d0d14; border: 1px solid var(--mystery-accent);
+    border-radius: 8px; padding: 16px;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px; color: var(--mystery-glow);
+    display: none;
+    margin-top: 16px;
+  }
+  .code-reveal.visible { display: block; animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === PRODUCTS SCREEN === */
+  #products-screen { padding: 30px 24px; min-height: 560px; }
+
+  .product-list { display: flex; flex-direction: column; gap: 12px; }
+  .product-row {
+    background: var(--mystery-surface);
+    border: 1px solid var(--mystery-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .product-row:hover { border-color: var(--mystery-accent); }
+  .product-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--mystery-accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .product-info { flex: 1; }
+  .product-name { font-size: 14px; font-weight: 500; }
+  .product-price { font-size: 12px; color: var(--mystery-muted); margin-top: 2px; }
+  .product-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(124,92,191,0.2); color: var(--mystery-glow);
+    border: 1px solid rgba(124,92,191,0.3);
+  }
+
+  /* Secret mini game inside products */
+  .mini-game-zone {
+    margin-top: 20px;
+    background: var(--mystery-surface);
+    border: 1px solid var(--mystery-border);
+    border-radius: 10px;
+    padding: 16px;
+    display: none;
+  }
+  .mini-game-zone.visible { display: block; animation: fadeIn 0.3s ease; }
+  .mini-game-title { font-size: 13px; color: var(--mystery-gold); margin-bottom: 12px; }
+
+  /* Click-sequence game */
+  .seq-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+  .seq-btn {
+    width: 44px; height: 44px; border-radius: 8px;
+    border: 1px solid var(--mystery-border);
+    background: var(--mystery-bg);
+    cursor: pointer; font-size: 16px;
+    transition: background 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .seq-btn:hover { background: rgba(124,92,191,0.2); transform: scale(1.05); }
+  .seq-btn.correct { background: rgba(76,175,136,0.3); border-color: var(--mystery-green); }
+  .seq-btn.wrong { background: rgba(226,75,74,0.3); border-color: var(--mystery-red); animation: shake 0.3s; }
+  .seq-hint { font-size: 12px; color: var(--mystery-muted); margin-top: 8px; }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  /* === CONTACT SCREEN === */
+  #contact-screen { padding: 30px 24px; min-height: 560px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; color: var(--mystery-muted); display: block; margin-bottom: 6px; }
+  .form-input {
+    width: 100%; background: var(--mystery-surface);
+    border: 1px solid var(--mystery-border);
+    border-radius: 8px; padding: 10px 14px;
+    font-family: inherit; font-size: 13px;
+    color: var(--mystery-text);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--mystery-accent); }
+
+  .submit-btn {
+    background: var(--mystery-accent); color: white;
+    border: none; border-radius: 8px;
+    padding: 10px 24px; font-size: 13px;
+    cursor: pointer; font-family: inherit;
+    transition: background 0.2s;
+  }
+  .submit-btn:hover { background: var(--mystery-glow); }
+
+  /* Hidden field easter egg */
+  .secret-field {
+    position: absolute; left: -9999px;
+    opacity: 0; pointer-events: none;
+  }
+  .secret-field.revealed {
+    position: static; opacity: 1;
+    pointer-events: all;
+    animation: fadeIn 0.4s ease;
+  }
+
+  /* === SECRET PAGE === */
+  #secret-screen { padding: 30px 24px; min-height: 560px; align-items: center; justify-content: center; text-align: center; }
+  .secret-title { font-size: 22px; color: var(--mystery-gold); margin-bottom: 10px; }
+  .secret-desc { font-size: 14px; color: var(--mystery-muted); line-height: 1.6; max-width: 360px; margin-bottom: 28px; }
+  .cipher-input {
+    background: var(--mystery-surface);
+    border: 1px solid var(--mystery-border);
+    border-radius: 8px; padding: 10px 16px;
+    font-family: inherit; font-size: 14px;
+    color: var(--mystery-text); text-align: center;
+    width: 200px; outline: none;
+    margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto;
+  }
+  .cipher-input:focus { border-color: var(--mystery-gold); }
+  .cipher-submit {
+    background: transparent; border: 1px solid var(--mystery-gold);
+    color: var(--mystery-gold); border-radius: 8px;
+    padding: 8px 20px; font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: background 0.2s;
+  }
+  .cipher-submit:hover { background: rgba(240,160,48,0.1); }
+  .cipher-feedback { font-size: 13px; margin-top: 10px; min-height: 20px; }
+
+  /* === ENDING SCREEN === */
+  #ending-screen { padding: 30px 24px; align-items: center; justify-content: center; text-align: center; min-height: 560px; }
+  .ending-stars {
+    font-size: 32px; margin-bottom: 20px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+  .ending-title { font-size: 24px; color: var(--mystery-glow); margin-bottom: 10px; }
+  .ending-sub { font-size: 14px; color: var(--mystery-muted); line-height: 1.6; max-width: 400px; margin-bottom: 28px; }
+  .achievement-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; width: 100%; max-width: 360px; }
+  .achievement {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--mystery-surface);
+    border: 1px solid var(--mystery-border);
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 13px; text-align: left;
+  }
+  .achievement-icon { color: var(--mystery-gold); font-size: 16px; }
+  .achievement-name { flex: 1; }
+  .achievement-check { color: var(--mystery-green); }
+
+  .reset-btn {
+    background: transparent; border: 1px solid var(--mystery-muted);
+    color: var(--mystery-muted); border-radius: 8px;
+    padding: 8px 20px; font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: color 0.2s, border-color 0.2s;
+  }
+  .reset-btn:hover { color: var(--mystery-text); border-color: var(--mystery-text); }
+
+  /* === TOAST === */
+  .toast {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px);
+    background: var(--mystery-surface); border: 1px solid var(--mystery-accent);
+    border-radius: 8px; padding: 10px 20px;
+    font-size: 13px; color: var(--mystery-text);
+    transition: transform 0.3s ease;
+    z-index: 100; white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* === DISCOVERY LOG === */
+  .discovery-bar {
+    display: flex; gap: 6px; align-items: center;
+    padding: 8px 20px;
+    background: var(--mystery-surface);
+    border-top: 1px solid var(--mystery-border);
+    margin-top: auto;
+  }
+  .discovery-label { font-size: 11px; color: var(--mystery-muted); }
+  .discovery-dots { display: flex; gap: 6px; }
+  .discovery-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--mystery-border); transition: background 0.3s;
+  }
+  .discovery-dot.found { background: var(--mystery-gold); }
+
+  /* Konami hint */
+  .konami-hint { font-size: 11px; color: var(--mystery-border); margin-left: auto; transition: color 0.5s; }
+  .konami-hint.activated { color: var(--mystery-glow); }
+</style>
+
+<div id="game-root">
+  <div class="floating-hints" id="floats"></div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <span class="nav-logo" id="nav-logo" style="cursor:pointer">● NEXUS</span>
+    <div class="nav-links">
+      <button class="nav-link" onclick="goTo('home')">Početna</button>
+      <button class="nav-link" id="nav-about" onclick="goTo('about')">O nama</button>
+      <button class="nav-link" id="nav-products" onclick="goTo('products')">Proizvodi</button>
+      <button class="nav-link" id="nav-contact" onclick="goTo('contact')">Kontakt</button>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="progress-bar"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+
+  <!-- HOME -->
+  <div id="home-screen" class="screen active">
+    <div class="hero-title">Dobrodošli u Nexus.</div>
+    <div class="hero-sub">Ovo izgleda kao obična stranica.<br>Ali svaki klik skriva nešto više.</div>
+    <button class="cta-btn" onclick="homeCtaClick()">Istraži →</button>
+    <div style="margin-top: 40px; font-size: 12px; color: var(--mystery-muted); opacity:0.5">v1.0.0 — normal website</div>
+    <div class="corner-mystery" id="corner" onclick="cornerClick()" title=""></div>
+  </div>
+
+  <!-- ABOUT -->
+  <div id="about-screen" class="screen">
+    <div class="page-title">O nama</div>
+    <div class="page-sub">Tvrtka koja stvara digitalne svjetove.</div>
+    <div class="about-grid">
+      <div class="about-card" id="card-vision" onclick="aboutCardClick('vision')">
+        <div class="about-card-icon">◈</div>
+        <div class="about-card-title">Vizija</div>
+        <div class="about-card-desc">Gradimo mostove između digitalnog i stvarnog.</div>
+        <div class="about-card-secret"></div>
+      </div>
+      <div class="about-card" id="card-team" onclick="aboutCardClick('team')">
+        <div class="about-card-icon">◎</div>
+        <div class="about-card-title">Tim</div>
+        <div class="about-card-desc">Šest ljudi, četrnaest tajni, jedan cilj.</div>
+        <div class="about-card-secret"></div>
+      </div>
+      <div class="about-card" id="card-tech" onclick="aboutCardClick('tech')">
+        <div class="about-card-icon">⬡</div>
+        <div class="about-card-title">Tehnologija</div>
+        <div class="about-card-desc">Stack koji ne možeš vidjeti sa Surface-a.</div>
+        <div class="about-card-secret"></div>
+      </div>
+      <div class="about-card" id="card-history" onclick="aboutCardClick('history')">
+        <div class="about-card-icon">◐</div>
+        <div class="about-card-title">Historija</div>
+        <div class="about-card-desc">Osnovan 2019. Ili možda ranije?</div>
+        <div class="about-card-secret"></div>
+      </div>
+    </div>
+    <div class="code-reveal" id="code-reveal">
+      <span style="color:var(--mystery-muted)">// Pronašao si kod:</span><br>
+      <span id="code-text" style="color:var(--mystery-glow)"></span><br>
+      <span style="color:var(--mystery-muted); font-size:11px">— zapamti ga.</span>
+    </div>
+    <div style="margin-top: auto; padding-top: 20px;">
+      <span style="font-size: 11px; color: var(--mystery-border)" id="about-footer">klikni sve kartice da otključaš nešto...</span>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div id="products-screen" class="screen">
+    <div class="page-title">Proizvodi</div>
+    <div class="page-sub">Tri poznata. Jedan skriven.</div>
+    <div class="product-list">
+      <div class="product-row" onclick="productClick(0)">
+        <div class="product-icon" style="background:#3b3b5c">◈</div>
+        <div class="product-info">
+          <div class="product-name">Nexus Core</div>
+          <div class="product-price">$49 / mj</div>
+        </div>
+        <div class="product-badge">Popularan</div>
+      </div>
+      <div class="product-row" onclick="productClick(1)">
+        <div class="product-icon" style="background:#2a3d3a">◎</div>
+        <div class="product-info">
+          <div class="product-name">Nexus Pro</div>
+          <div class="product-price">$129 / mj</div>
+        </div>
+        <div class="product-badge">Preporučeno</div>
+      </div>
+      <div class="product-row" onclick="productClick(2)">
+        <div class="product-icon" style="background:#3d2a2a">⬡</div>
+        <div class="product-info">
+          <div class="product-name">Nexus Enterprise</div>
+          <div class="product-price">Custom</div>
+        </div>
+        <div class="product-badge">Za timove</div>
+      </div>
+      <div class="product-row" id="hidden-product" style="display:none; border-color: var(--mystery-gold)">
+        <div class="product-icon" style="background:#3d2f00">★</div>
+        <div class="product-info">
+          <div class="product-name" style="color:var(--mystery-gold)">Nexus Zero</div>
+          <div class="product-price" style="color:var(--mystery-muted)">???</div>
+        </div>
+        <div class="product-badge" style="background:rgba(240,160,48,0.1); color:var(--mystery-gold); border-color:rgba(240,160,48,0.3)">Tajno</div>
+      </div>
+    </div>
+
+    <!-- Mini igrica -->
+    <div class="mini-game-zone" id="mini-game">
+      <div class="mini-game-title">◎ Pronašao si mini igru — klikni točan slijed: ▲ ▲ ▼ ▼</div>
+      <div class="seq-buttons">
+        <button class="seq-btn" onclick="seqClick('▲')">▲</button>
+        <button class="seq-btn" onclick="seqClick('▼')">▼</button>
+        <button class="seq-btn" onclick="seqClick('◄')">◄</button>
+        <button class="seq-btn" onclick="seqClick('►')">►</button>
+      </div>
+      <div class="seq-hint" id="seq-hint">Unesi: ▲ ▲ ▼ ▼ &nbsp; ( <span id="seq-progress">0</span>/4 )</div>
+    </div>
+  </div>
+
+  <!-- CONTACT -->
+  <div id="contact-screen" class="screen">
+    <div class="page-title">Kontakt</div>
+    <div class="page-sub">Pošalji nam poruku. Ili nešto više.</div>
+    <div style="max-width: 480px;">
+      <div class="form-group">
+        <label class="form-label">Ime</label>
+        <input class="form-input" id="contact-name" type="text" placeholder="Tvoje ime" onkeyup="checkSecretName()" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" placeholder="email@primjer.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Poruka</label>
+        <textarea class="form-input" rows="3" placeholder="Napiši nešto..."></textarea>
+      </div>
+
+      <!-- Hidden field — appears only when secret name typed -->
+      <div class="form-group secret-field" id="secret-form-field">
+        <label class="form-label" style="color:var(--mystery-gold)">★ Tajni kod</label>
+        <input class="form-input" id="secret-code-input" type="text" placeholder="Unesi kod koji si pronašao..."
+          style="border-color: rgba(240,160,48,0.5)"
+          onkeyup="checkSecretCode()">
+      </div>
+
+      <button class="submit-btn" onclick="contactSubmit()">Pošalji poruku</button>
+      <div style="font-size: 11px; color: var(--mystery-border); margin-top: 16px; line-height: 1.6" id="contact-hint">
+        Upišite "NEXUS" u polje Ime...
+      </div>
+    </div>
+  </div>
+
+  <!-- SECRET PAGE -->
+  <div id="secret-screen" class="screen">
+    <div class="secret-title">◐ Pronašao si tajnu stranicu</div>
+    <div class="secret-desc">Ovo nije trebao biti ovdje. Ali sada kad jesi — ostaje ti još jedan korak.</div>
+    <div style="font-size: 12px; color: var(--mystery-muted); margin-bottom: 20px; max-width: 320px; text-align: center; line-height: 1.7">
+      Šifra je skrivena u svim stranicama.<br>Svaki odjeljak drži jednu znakovnu.<br><br>
+      <span style="color: var(--mystery-glow)">V · I · Z · I · J · A</span>
+    </div>
+    <input class="cipher-input" id="cipher-input" type="text" placeholder="unesi finalnu šifru" maxlength="8">
+    <button class="cipher-submit" onclick="checkCipher()">Provjeri</button>
+    <div class="cipher-feedback" id="cipher-fb"></div>
+  </div>
+
+  <!-- ENDING -->
+  <div id="ending-screen" class="screen">
+    <div class="ending-stars">★ ★ ★</div>
+    <div class="ending-title">Završio si Nexus.</div>
+    <div class="ending-sub">Prošao si kroz sve slojeve i pronašao tajni ending. Samo 1% posjetitelja dođe ovdje.</div>
+    <div class="achievement-list" id="achievement-list"></div>
+    <button class="reset-btn" onclick="resetGame()">Resetiraj i igraj ponovo</button>
+  </div>
+
+  <!-- DISCOVERY BAR -->
+  <div class="discovery-bar">
+    <span class="discovery-label">Otkrića:</span>
+    <div class="discovery-dots">
+      <div class="discovery-dot" id="dot-0" title="Easter egg"></div>
+      <div class="discovery-dot" id="dot-1" title="Kod"></div>
+      <div class="discovery-dot" id="dot-2" title="Mini igra"></div>
+      <div class="discovery-dot" id="dot-3" title="Tajni produkt"></div>
+      <div class="discovery-dot" id="dot-4" title="Tajna stranica"></div>
+      <div class="discovery-dot" id="dot-5" title="Ending"></div>
+    </div>
+    <span class="konami-hint" id="konami-hint">↑↑↓↓</span>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const state = {
+  currentScreen: 'home',
+  discoveries: [false,false,false,false,false,false],
+  aboutClicks: 0,
+  aboutCards: new Set(),
+  productClicks: 0,
+  seqProgress: 0,
+  seqDone: false,
+  hiddenProductVisible: false,
+  secretNameTyped: false,
+  codeRevealed: false,
+  cornerClicks: 0,
+  konamiSeq: [],
+  achievements: []
+};
+
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight'];
+
+function goTo(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screen + '-screen').classList.add('active');
+  state.currentScreen = screen;
+  updateProgress();
+}
+
+function updateProgress() {
+  const count = state.discoveries.filter(Boolean).length;
+  document.getElementById('prog').style.width = (count / 6 * 100) + '%';
+  state.discoveries.forEach((v,i) => {
+    const dot = document.getElementById('dot-' + i);
+    if (v) dot.classList.add('found');
+  });
+}
+
+function showToast(msg, duration) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration || 2600);
+}
+
+function discover(i, name) {
+  if (state.discoveries[i]) return;
+  state.discoveries[i] = true;
+  state.achievements.push(name);
+  updateProgress();
+  showToast('◎ Otkriće: ' + name);
+}
+
+/* HOME */
+function homeCtaClick() {
+  goTo('about');
+  showToast('Dobrodošao istraživaču. Pažljivo gledaj.', 3000);
+}
+
+let cornerClickCount = 0;
+function cornerClick() {
+  cornerClickCount++;
+  if (cornerClickCount === 3) {
+    discover(0, 'Easter egg u kutu');
+    showToast('★ Pronašao si easter egg! Klikni nav logo 5 puta.', 3500);
+  }
+}
+
+let logoClicks = 0;
+document.getElementById('nav-logo').addEventListener('click', function() {
+  logoClicks++;
+  if (logoClicks >= 5) {
+    logoClicks = 0;
+    goTo('secret');
+    discover(4, 'Tajna stranica otključana');
+  }
+});
+
+/* ABOUT */
+const codeFragments = { vision: 'N3X', team: 'U5_', tech: 'Z3R', history: '0' };
+const codeMessages = {
+  vision: 'Vizija nikad nije samo vizija.',
+  team: '"Šest" je netočan broj.',
+  tech: 'Stack je dublji od što misliš.',
+  history: '2019? Provjeri ponovno.'
+};
+
+function aboutCardClick(card) {
+  const el = document.getElementById('card-' + card);
+  if (state.aboutCards.has(card)) return;
+  state.aboutCards.add(card);
+  el.classList.add('discovered');
+  showToast('◈ ' + codeMessages[card]);
+
+  if (state.aboutCards.size === 4) {
+    const fullCode = Object.values(codeFragments).join('');
+    document.getElementById('code-text').textContent = fullCode;
+    document.getElementById('code-reveal').classList.add('visible');
+    document.getElementById('about-footer').textContent = 'Kod: ' + fullCode + ' — zapamti!';
+    discover(1, 'Kod otključan (N3XU5_Z3R0)');
+    showToast('★ Sve karte kliknute! Kod: ' + fullCode, 4000);
+  }
+}
+
+/* PRODUCTS */
+let productClickCount = 0;
+function productClick(i) {
+  productClickCount++;
+  if (productClickCount === 3 && !state.seqDone) {
+    document.getElementById('mini-game').classList.add('visible');
+    discover(2, 'Mini igra pronađena');
+    showToast('◎ Otključana mini igra!');
+  }
+}
+
+const seqTarget = ['▲','▲','▼','▼'];
+function seqClick(sym) {
+  if (state.seqDone) return;
+  const el = document.querySelector('.seq-btn:nth-child(' + (['▲','▼','◄','►'].indexOf(sym)+1) + ')');
+  if (seqTarget[state.seqProgress] === sym) {
+    state.seqProgress++;
+    if (el) { el.classList.add('correct'); setTimeout(() => el.classList.remove('correct'), 300); }
+    document.getElementById('seq-progress').textContent = state.seqProgress;
+    if (state.seqProgress === 4) {
+      state.seqDone = true;
+      document.getElementById('seq-hint').innerHTML = '<span style="color:var(--mystery-green)">★ Točno! Tajni produkt otključan.</span>';
+      document.getElementById('hidden-product').style.display = 'flex';
+      document.getElementById('hidden-product').style.animation = 'fadeIn 0.4s ease';
+      discover(3, 'Nexus Zero otključan');
+      showToast('★ Nexus Zero otkriven!', 3500);
+    }
+  } else {
+    state.seqProgress = 0;
+    document.getElementById('seq-progress').textContent = 0;
+    if (el) { el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 400); }
+  }
+}
+
+/* CONTACT */
+function checkSecretName() {
+  const val = document.getElementById('contact-name').value.toUpperCase();
+  if (val === 'NEXUS' && !state.secretNameTyped) {
+    state.secretNameTyped = true;
+    document.getElementById('secret-form-field').classList.add('revealed');
+    document.getElementById('contact-hint').textContent = '★ Tajno polje se pojavilo!';
+    showToast('◐ Tajno polje otključano!');
+  }
+}
+
+function checkSecretCode() {
+  const val = document.getElementById('secret-code-input').value.toUpperCase().replace(/[^A-Z0-9_]/g,'');
+  if (val === 'N3XU5_Z3R0') {
+    document.getElementById('contact-hint').innerHTML = '<span style="color:var(--mystery-gold)">★ Kod prihvaćen! Idi na tajnu stranicu.</span>';
+    showToast('★ Kod je točan! Klikni logo 5x.', 4000);
+  }
+}
+
+function contactSubmit() {
+  showToast('Poruka nije poslana. Ovo nije prava forma.');
+}
+
+/* SECRET PAGE */
+function checkCipher() {
+  const val = document.getElementById('cipher-input').value.toUpperCase().trim();
+  const fb = document.getElementById('cipher-fb');
+  if (val === 'VIZIJA' || val === 'NEXUS' || val === 'N3XU5_Z3R0' || val === 'ZERO') {
+    fb.style.color = 'var(--mystery-green)';
+    fb.textContent = '★ Točno! Otključavaš tajni ending...';
+    setTimeout(() => {
+      goTo('ending');
+      discover(5, 'Tajni ending dostignut');
+      buildAchievements();
+    }, 1200);
+  } else {
+    fb.style.color = 'var(--mystery-red)';
+    fb.textContent = 'Nije točno. Tragaj dalje.';
+  }
+}
+
+function buildAchievements() {
+  const list = document.getElementById('achievement-list');
+  const icons = ['◐','◈','◎','★','⬡','●'];
+  list.innerHTML = state.achievements.map((a,i) =>
+    `<div class="achievement">
+      <span class="achievement-icon">${icons[i % icons.length]}</span>
+      <span class="achievement-name">${a}</span>
+      <span class="achievement-check">✓</span>
+    </div>`
+  ).join('');
+}
+
+function resetGame() {
+  Object.assign(state, {
+    currentScreen: 'home', discoveries: [false,false,false,false,false,false],
+    aboutClicks: 0, aboutCards: new Set(), productClicks: 0,
+    seqProgress: 0, seqDone: false, hiddenProductVisible: false,
+    secretNameTyped: false, codeRevealed: false, cornerClicks: 0,
+    konamiSeq: [], achievements: []
+  });
+  cornerClickCount = 0; logoClicks = 0; productClickCount = 0;
+  document.querySelectorAll('.about-card').forEach(c => c.classList.remove('discovered'));
+  document.getElementById('code-reveal').classList.remove('visible');
+  document.getElementById('mini-game').classList.remove('visible');
+  document.getElementById('hidden-product').style.display = 'none';
+  document.getElementById('secret-form-field').classList.remove('revealed');
+  document.getElementById('contact-name').value = '';
+  document.getElementById('secret-code-input').value = '';
+  document.getElementById('cipher-input').value = '';
+  document.getElementById('cipher-fb').textContent = '';
+  document.getElementById('contact-hint').textContent = 'Upišite "NEXUS" u polje Ime...';
+  document.getElementById('about-footer').textContent = 'klikni sve kartice da otključaš nešto...';
+  document.getElementById('seq-progress').textContent = '0';
+  document.getElementById('seq-hint').innerHTML = 'Unesi: ▲ ▲ ▼ ▼ &nbsp; ( <span id="seq-progress">0</span>/4 )';
+  document.querySelectorAll('.discovery-dot').forEach(d => d.classList.remove('found'));
+  document.getElementById('prog').style.width = '0%';
+  goTo('home');
+}
+
+/* KONAMI CODE */
+document.addEventListener('keydown', function(e) {
+  state.konamiSeq.push(e.key);
+  if (state.konamiSeq.length > 8) state.konamiSeq.shift();
+  if (state.konamiSeq.join(',') === KONAMI.join(',')) {
+    document.getElementById('konami-hint').classList.add('activated');
+    document.getElementById('konami-hint').textContent = '★ Konami!';
+    showToast('★ KONAMI KOD! Bonus easter egg!', 3500);
+    discover(0, 'Easter egg (Konami kod)');
+  }
+});
+
+/* Floating dots */
+const floats = document.getElementById('floats');
+for (let i = 0; i < 8; i++) {
+  const d = document.createElement('div');
+  d.className = 'hint-dot';
+  d.style.cssText = `left:${Math.random()*90+5}%;top:${Math.random()*80+10}%;animation-delay:${Math.random()*3}s;animation-duration:${3+Math.random()*3}s`;
+  floats.appendChild(d);
+}
+</script>
